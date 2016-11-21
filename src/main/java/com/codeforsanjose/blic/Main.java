@@ -137,12 +137,11 @@ public class Main {
 
         c.crawl();
 
-        List<String> results = c.getResults();
+        List<WebPage> results = c.getRawResults();
         Collections.sort(results);
-        for (String s : results) {
-            System.out.println(s);
-            log.info(s);
-        }
+        String json = new Gson().toJson(results);
+        System.out.println(json);
+        log.info(json);
     }
 
     public static String getUsage() {
