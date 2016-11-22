@@ -1,18 +1,12 @@
 package com.codeforsanjose.blic;
 
-import com.codeforsanjose.blic.web.BlicMessage;
 import com.google.gson.Gson;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import spark.Filter;
-import spark.Request;
-import spark.Response;
 
 import java.net.MalformedURLException;
 import java.util.Collections;
 import java.util.List;
-
-import static spark.Spark.*;
 
 public class Main {
 
@@ -20,110 +14,35 @@ public class Main {
 
     public static void main(String[] args) {
         log.info("\n"
-                + "+-------------------------------------------+\n"
-                + "|            Broken Link Checker            |\n"
-                + "+-------------------------------------------+");
+            + "+-------------------------------------------+\n"
+            + "|            Broken Link Checker            |\n"
+            + "+-------------------------------------------+");
 
-
-        if (args.length == 1 && args[0].equalsIgnoreCase("serve")) {
-            startWeb();
-        } else {
-            startCli(args);
-        }
-
-    }
-
-    static int getHerokuAssignedPort() {
-        ProcessBuilder processBuilder = new ProcessBuilder();
-        if (processBuilder.environment().get("PORT") != null) {
-            return Integer.parseInt(processBuilder.environment().get("PORT"));
-        }
-        return 4567; //return default port if heroku-port isn't set (i.e. on localhost)
-    }
-
-    private static void enableCORS(final String origin, final String methods, final String headers) {
-        before(new Filter() {
-            @Override
-            public void handle(Request request, Response response) {
-                response.header("Access-Control-Allow-Origin", origin);
-                response.header("Access-Control-Request-Method", methods);
-                response.header("Access-Control-Allow-Headers", headers);
-            }
-        });
-    }
-
-    private static void startWeb() {
-        port(getHerokuAssignedPort());
-        enableCORS("*", "*", "*");
-        get("/check", (req, res) ->{
-            res.type("text/json");
-            String arg_url = req.queryParams("url");
-            Integer arg_depth_limit = pacifistParseInt(req.queryParams("depth"));
-            Integer max_thread_limit = pacifistParseInt(req.queryParams("nthreads"));
-            Integer arg_fail_tolerance = pacifistParseInt(req.queryParams("nfails"));
-
-            if (arg_url == null || arg_url.length() < 1 ) {
-               return new Gson().toJson(new BlicMessage("must provide URL", BlicMessage.types.error));
-            }
-
-            arg_depth_limit = (arg_depth_limit == null) ? 3 : arg_depth_limit;
-            arg_fail_tolerance = (arg_fail_tolerance == null) ? 3 : arg_fail_tolerance;
-
-            CrawlController c = null;
-            try {
-                c = new CrawlController(arg_url, arg_depth_limit, arg_fail_tolerance, max_thread_limit);
-            } catch (MalformedURLException e) {
-                e.printStackTrace();
-            }
-            c.crawl();
-            List<WebPage> results = c.getRawResults();
-            return new Gson().toJson(results);
-
-        });
+        startCli(args);
     }
 
     private static void startCli(String[] args) {
         String arg_url;
-        Integer arg_depth_limit = null;
-        Integer arg_fail_tolerance = null;
-        Integer max_thread_limit = null;
+        Integer arg_depth_limit;
+        Integer arg_fail_tolerance;
+        Integer max_thread_limit;
+        String authentication = "";
         CrawlController c = null;
-        if (args.length == 0) {
+        if (args.length < 5) {
             System.out.println(getUsage());
             System.exit(-1);
-        } else if (args.length == 1) {
-            arg_url = args[0];
-            arg_depth_limit = 3;
-            try {
-                c = new CrawlController(arg_url, arg_depth_limit);
-            } catch (MalformedURLException e) {
-                e.printStackTrace();
-            }
-        } else if (args.length == 2) {
-            arg_url = args[0];
-            arg_depth_limit = parseArgInt(args, 1, "Second argument (depth limit) must be a valid integer");
-            try {
-                c = new CrawlController(arg_url, arg_depth_limit);
-            } catch (MalformedURLException e) {
-                e.printStackTrace();
-            }
-        } else if (args.length == 3) {
-            arg_url = args[0];
-            arg_depth_limit = parseArgInt(args, 1, "Second argument (depth limit) must be a valid integer");
-            arg_fail_tolerance = parseArgInt(args, 2, "Third argument (fail tolerance) must be a valid integer");
-            try {
-                c = new CrawlController(arg_url, arg_depth_limit, arg_fail_tolerance);
-            } catch (MalformedURLException e) {
-                e.printStackTrace();
-            }
-        } else if (args.length == 4) {
+        }
+        else {
             arg_url = args[0];
             arg_depth_limit = parseArgInt(args, 1, "Second argument (depth limit) must be a valid integer");
             arg_fail_tolerance = parseArgInt(args, 2, "Third argument (fail tolerance) must be a valid integer");
             max_thread_limit = parseArgInt(args, 3, "Third argument (max thread limit) must be a valid integer");
+            authentication = args[4];
+
             try {
-                c = new CrawlController(arg_url, arg_depth_limit, arg_fail_tolerance, max_thread_limit);
-            } catch (MalformedURLException e) {
+                c = new CrawlController(arg_url, arg_depth_limit, arg_fail_tolerance, max_thread_limit, authentication);
+            }
+            catch (MalformedURLException e) {
                 e.printStackTrace();
             }
         }
@@ -137,7 +56,7 @@ public class Main {
 
         c.crawl();
 
-        List<WebPage> results = c.getRawResults();
+        List<WebPage> results = c.getResults();
         Collections.sort(results);
         String json = new Gson().toJson(results);
         System.out.println(json);
@@ -146,16 +65,16 @@ public class Main {
 
     public static String getUsage() {
         return
-                "usage: blic.jar [url] [depth limit] [fail tolerance] [max thread limit]\n"
-                        + "\turl:               the URL of a website to be checked for broken links.\n"
-                        + "\tdepth limit:       optional number defining how far links should be\n"
-                        + "\t                    traversed before stopping\n\n"
-                        + "\tfail tolerance:    optional number defining how many retry attempts\n"
-                        + "\t                    should be made for a URL that fails to respond in\n"
-                        + "\t                    an expected manner.\n\n"
-                        + "\tmax thread limit:  optional number that disables the dynamic thread\n"
-                        + "\t                    management and defines the max number of threads\n"
-                        + "\t                    to be used\n";
+            "usage: blic.jar [url] [depth limit] [fail tolerance] [max thread limit] [basic auth]\n"
+                + "\turl:               the URL of a website to be checked for broken links.\n"
+                + "\tdepth limit:       number defining how far links should be\n"
+                + "\t                    traversed before stopping\n\n"
+                + "\tfail tolerance:    number defining how many retry attempts\n"
+                + "\t                    should be made for a URL that fails to respond in\n"
+                + "\t                    an expected manner.\n\n"
+                + "\tmax thread limit:  number that disables the dynamic thread\n"
+                + "\t                    management and defines the max number of threads\n"
+                + "\tbasic auth:  Basic auth credentials (username:password)";
     }
 
     /**
@@ -170,26 +89,10 @@ public class Main {
         Integer res = null;
         try {
             res = Integer.parseInt(args[argn]);
-        } catch (NumberFormatException nfe) {
+        }
+        catch (NumberFormatException nfe) {
             System.out.println(errmessage);
         }
         return res;
     }
-
-    /**
-     * Try to parse the integer, otherwise shut up.
-     */
-    static Integer pacifistParseInt(String maybeInt) {
-        if (maybeInt == null || maybeInt.length() < 1){
-            return null;
-        }
-        Integer res = null;
-        try {
-            res = Integer.parseInt(maybeInt);
-        } catch (NumberFormatException nfe) {
-            // don't careSystem.out.println(nfe);
-        }
-        return res;
-    }
-
 }

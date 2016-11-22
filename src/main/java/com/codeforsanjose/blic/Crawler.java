@@ -2,6 +2,7 @@ package com.codeforsanjose.blic;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jsoup.Connection;
 import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
 import org.jsoup.UnsupportedMimeTypeException;
@@ -10,8 +11,11 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 import java.io.IOException;
-import java.net.*;
+import java.net.MalformedURLException;
+import java.net.SocketException;
+import java.net.URL;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -21,14 +25,16 @@ public class Crawler implements Runnable {
     private String name;
     private int id;
     private int depth_limit;
+    private String authentication;
     private Map<URL, WebPage> pages;
     private static final Logger log = LogManager.getLogger(Crawler.class);
 
-    public Crawler(int id, WebPage webpage, Map<URL, WebPage> pages, URL base, int depth_limit) {
+    public Crawler(int id, WebPage webpage, Map<URL, WebPage> pages, URL base, int depth_limit, String authentication) {
         this.id = id;
         this.base = base;
         this.webpage = webpage;
         this.depth_limit = depth_limit;
+        this.authentication = authentication;
         this.name = this.webpage.getUrl().toString();
         this.pages = pages;
     }
@@ -40,18 +46,28 @@ public class Crawler implements Runnable {
             // give this page a rest for a bit
             try {
                 TimeUnit.SECONDS.sleep(this.webpage.getFailureCount());
-            } catch (InterruptedException e) {
+            }
+            catch (InterruptedException e) {
                 log.warn(e);
             }
         }
         try {
-            doc = Jsoup.connect(this.webpage.getUrl().toString())
-                    //.userAgent("Mozilla/5.0 (Windows NT 6.1; WOW64; rv:40.0) Gecko/20100101 Firefox/40.1")
-                    .userAgent("BLiC Broken Link Checker")
-                    .referrer("http://www.google.com")
-                    .followRedirects(true)
-                    .ignoreContentType(true)
-                    .get();
+
+
+            Connection connection = Jsoup.connect(this.webpage.getUrl().toString())
+                //.userAgent("Mozilla/5.0 (Windows NT 6.1; WOW64; rv:40.0) Gecko/20100101 Firefox/40.1")
+                .userAgent("BLiC Broken Link Checker")
+                .referrer("http://www.google.com")
+                .followRedirects(true)
+                .ignoreContentType(true);
+
+            //Do not add authentication if host is different then the base.
+            String base64login = new String(Base64.getEncoder().encode(this.authentication.getBytes()));
+            if (authentication != null && this.base.getHost().equals(this.webpage.getUrl().getHost())) {
+                connection.header("Authorization", "Basic " + base64login);
+            }
+
+            doc = connection.get();
             URL actual_url = new URL(doc.location());
             if (urlEquals(base, actual_url) && !urlEquals(this.webpage.getUrl(), actual_url)) {
                 this.webpage.setStatus(404);
@@ -80,19 +96,23 @@ public class Crawler implements Runnable {
                 }
             }
             this.webpage.setStatus(200);
-        } catch (UnsupportedMimeTypeException e) {
+        }
+        catch (UnsupportedMimeTypeException e) {
             this.webpage.setStatus(200);
-        } catch (HttpStatusException e) {
+        }
+        catch (HttpStatusException e) {
             this.webpage.failureCountIncrement();
             this.webpage.setStatus(e.getStatusCode());
             this.webpage.setFailReason(e.toString());
             log.warn(e);
-        } catch (SocketException e) {
+        }
+        catch (SocketException e) {
             this.webpage.failureCountIncrement();
             this.webpage.setStatus(-1);
             this.webpage.setFailReason(e.toString());
             log.warn(e);
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             this.webpage.failureCountIncrement();
             this.webpage.setStatus(-1);
             this.webpage.setFailReason(e.toString());
@@ -126,8 +146,8 @@ public class Crawler implements Runnable {
     private static URL getUrlWithoutParameters(URL url) throws MalformedURLException {
         // see https://docs.oracle.com/javase/tutorial/networking/urls/urlInfo.html
         return new URL(url.getProtocol(),
-                url.getAuthority(),
-                url.getFile());
+            url.getAuthority(),
+            url.getFile());
 
     }
 
@@ -141,7 +161,8 @@ public class Crawler implements Runnable {
             if (tempUrlString.startsWith("http://") || tempUrlString.startsWith("https://")) {
                 res = new URL(tempUrlString.replaceAll("/$", ""));
             }
-        } catch (MalformedURLException e) {
+        }
+        catch (MalformedURLException e) {
             log.warn(e);
         }
         return res;

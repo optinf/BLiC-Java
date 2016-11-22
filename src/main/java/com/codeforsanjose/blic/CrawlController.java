@@ -18,36 +18,24 @@ public class CrawlController {
     private Map<URL, WebPage> pages;
     private ThreadPoolExecutor executor;
     private int depth_limit;
-    private boolean useFixedThreadPool;
+    private boolean useFixedThreadPool = false;
     private int max_thread_limit;
-    private int crawler_id;
+    private int crawler_id = 0;
     private int fail_tolerance;
     private URL base_url;
+    private String header;
+
     private static final Logger log = LogManager.getLogger(CrawlController.class);
 
-    public CrawlController(String base_url, Integer depth_limit) throws MalformedURLException {
-        this.base_url = new URL(base_url);
-        this.fail_tolerance = 3;
-        this.depth_limit = depth_limit;
-        this.useFixedThreadPool = false;
-        this.crawler_id = 0;
-    }
-
-    public CrawlController(String base_url, Integer depth_limit, Integer fail_tolerance) throws MalformedURLException {
-        this.base_url = new URL(base_url);
-        this.fail_tolerance = fail_tolerance;
-        this.depth_limit = depth_limit;
-        this.useFixedThreadPool = false;
-        this.crawler_id = 0;
-    }
-
-    public CrawlController(String base_url, Integer depth_limit, Integer fail_tolerance, Integer max_thread_limit) throws MalformedURLException {
+    public CrawlController(String base_url, Integer depth_limit, Integer fail_tolerance, Integer max_thread_limit, String header) throws MalformedURLException {
         this.base_url = new URL(base_url);
         this.fail_tolerance = fail_tolerance;
         if (max_thread_limit != null) {
             this.max_thread_limit = max_thread_limit;
             this.useFixedThreadPool = true;
         }
+
+        this.header = header;
         this.depth_limit = depth_limit;
         this.crawler_id = 0;
     }
@@ -59,7 +47,8 @@ public class CrawlController {
 
         if (useFixedThreadPool) {
             executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(max_thread_limit);
-        } else {
+        }
+        else {
             executor = (ThreadPoolExecutor) Executors.newCachedThreadPool();
         }
 
@@ -78,12 +67,13 @@ public class CrawlController {
             executor.shutdown();
             executor.awaitTermination(60, TimeUnit.SECONDS);
             log.debug("done: " + isDone());
-        } catch (InterruptedException e) {
+        }
+        catch (InterruptedException e) {
             e.printStackTrace();
         }
     }
 
-    public List<WebPage> getRawResults() {
+    public List<WebPage> getResults() {
         ArrayList<WebPage> res = new ArrayList<>();
         for (Object o : pages.entrySet()) {
             Map.Entry<String, WebPage> cur = (Map.Entry<String, WebPage>) o;
@@ -92,17 +82,8 @@ public class CrawlController {
         return res;
     }
 
-    public List<String> getResults() {
-        ArrayList<String> res = new ArrayList<>();
-        for (Object o : pages.entrySet()) {
-            Map.Entry<String, WebPage> cur = (Map.Entry<String, WebPage>) o;
-            res.add(cur.getValue().toString());
-        }
-        return res;
-    }
-
     private void startCrawler(WebPage page) {
-        Crawler task = new Crawler(++crawler_id, page, pages, this.base_url, this.depth_limit);
+        Crawler task = new Crawler(++crawler_id, page, pages, this.base_url, this.depth_limit, this.header);
         log.trace("A new crawler has been added : " + task.toString());
         executor.execute(task);
     }
@@ -122,7 +103,8 @@ public class CrawlController {
             if (!w.isLocked() && w.getStatus() == null && w.getDepth() <= depth_limit) {
                 w.lock();
                 return w;
-            } else if (!w.isLocked() && w.getStatus() != null && (w.getFailureCount() < fail_tolerance && (w.getStatus() == -1 || w.getStatus() == 429))) {
+            }
+            else if (!w.isLocked() && w.getStatus() != null && (w.getFailureCount() < fail_tolerance && (w.getStatus() == -1 || w.getStatus() == 429))) {
                 w.lock();
                 return w;
             }
