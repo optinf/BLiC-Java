@@ -5,6 +5,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.net.MalformedURLException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -22,25 +23,24 @@ public class Main {
     }
 
     private static void startCli(String[] args) {
-        String arg_url;
-        Integer arg_depth_limit;
-        Integer arg_fail_tolerance;
-        Integer max_thread_limit;
-        String authentication = "";
         CrawlController c = null;
-        if (args.length < 5) {
+
+        int requiredArgNumber = 6;
+
+        if (args.length < requiredArgNumber) {
             System.out.println(getUsage());
             System.exit(-1);
         }
         else {
-            arg_url = args[0];
-            arg_depth_limit = parseArgInt(args, 1, "Second argument (depth limit) must be a valid integer");
-            arg_fail_tolerance = parseArgInt(args, 2, "Third argument (fail tolerance) must be a valid integer");
-            max_thread_limit = parseArgInt(args, 3, "Third argument (max thread limit) must be a valid integer");
-            authentication = args[4];
+            String arg_url = args[0];
+            Integer arg_depth_limit = parseArgInt(args, 1, "Second argument (depth limit) must be a valid integer");
+            Integer arg_fail_tolerance = parseArgInt(args, 2, "Third argument (fail tolerance) must be a valid integer");
+            Integer max_thread_limit = parseArgInt(args, 3, "Third argument (max thread limit) must be a valid integer");
+            List<String> exclusionPatterns = Arrays.asList(args[4].split(";"));
+            String authentication = args[5];
 
             try {
-                c = new CrawlController(arg_url, arg_depth_limit, arg_fail_tolerance, max_thread_limit, authentication);
+                c = new CrawlController(arg_url, arg_depth_limit, arg_fail_tolerance, max_thread_limit, exclusionPatterns, authentication);
             }
             catch (MalformedURLException e) {
                 e.printStackTrace();
@@ -65,7 +65,7 @@ public class Main {
 
     public static String getUsage() {
         return
-            "usage: blic.jar [url] [depth limit] [fail tolerance] [max thread limit] [basic auth]\n"
+            "usage: blic.jar [url] [depth limit] [fail tolerance] [max thread limit] [exclusion] [basic auth]\n"
                 + "\turl:               the URL of a website to be checked for broken links.\n"
                 + "\tdepth limit:       number defining how far links should be\n"
                 + "\t                    traversed before stopping\n\n"
@@ -74,6 +74,7 @@ public class Main {
                 + "\t                    an expected manner.\n\n"
                 + "\tmax thread limit:  number that disables the dynamic thread\n"
                 + "\t                    management and defines the max number of threads\n"
+                + "\tExclusions         URL patterns to avoid : (/login.*;/private)\n"
                 + "\tbasic auth:  Basic auth credentials (username:password)";
     }
 

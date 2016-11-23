@@ -16,8 +16,11 @@ import java.net.SocketException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Crawler implements Runnable {
     private final URL base;
@@ -26,10 +29,11 @@ public class Crawler implements Runnable {
     private int id;
     private int depth_limit;
     private String authentication;
+    private List<String> exclusionPatterns;
     private Map<URL, WebPage> pages;
     private static final Logger log = LogManager.getLogger(Crawler.class);
 
-    public Crawler(int id, WebPage webpage, Map<URL, WebPage> pages, URL base, int depth_limit, String authentication) {
+    public Crawler(int id, WebPage webpage, Map<URL, WebPage> pages, URL base, int depth_limit, List<String> exclusionPatterns, String authentication) {
         this.id = id;
         this.base = base;
         this.webpage = webpage;
@@ -37,6 +41,7 @@ public class Crawler implements Runnable {
         this.authentication = authentication;
         this.name = this.webpage.getUrl().toString();
         this.pages = pages;
+        this.exclusionPatterns = exclusionPatterns;
     }
 
     @Override
@@ -53,7 +58,6 @@ public class Crawler implements Runnable {
         }
         try {
 
-
             Connection connection = Jsoup.connect(this.webpage.getUrl().toString())
                 //.userAgent("Mozilla/5.0 (Windows NT 6.1; WOW64; rv:40.0) Gecko/20100101 Firefox/40.1")
                 .userAgent("BLiC Broken Link Checker")
@@ -62,8 +66,8 @@ public class Crawler implements Runnable {
                 .ignoreContentType(true);
 
             //Do not add authentication if host is different then the base.
-            String base64login = new String(Base64.getEncoder().encode(this.authentication.getBytes()));
-            if (authentication != null && this.base.getHost().equals(this.webpage.getUrl().getHost())) {
+            if (shouldCrawlPage()) {
+                String base64login = new String(Base64.getEncoder().encode(this.authentication.getBytes()));
                 connection.header("Authorization", "Basic " + base64login);
             }
 
@@ -86,13 +90,15 @@ public class Crawler implements Runnable {
             log.info(id + ": Found " + absUrls.size() + " links on page");
             for (URL u : absUrls) {
                 WebPage p = this.pages.get(u);
-                if (p != null && !u.equals(this.webpage.getUrl())) {
-                    p.linkedByPageAdd(this.webpage.getUrl());
-                }
-                if (this.depth_limit > this.webpage.getDepth()) {
-                    WebPage w = new WebPage(this.webpage, u);
-                    w.setDepth(this.webpage.getDepth() + 1);
-                    this.pages.putIfAbsent(u, w);
+                if (!isExcludedUrl(u)) {
+                    if (p != null && !u.equals(this.webpage.getUrl())) {
+                        p.linkedByPageAdd(this.webpage.getUrl());
+                    }
+                    if (this.depth_limit > this.webpage.getDepth()) {
+                        WebPage w = new WebPage(this.webpage, u);
+                        w.setDepth(this.webpage.getDepth() + 1);
+                        this.pages.putIfAbsent(u, w);
+                    }
                 }
             }
             this.webpage.setStatus(200);
@@ -124,6 +130,17 @@ public class Crawler implements Runnable {
 
     private boolean shouldCrawlPage() {
         return this.webpage.getUrl().getHost().equals(base.getHost());
+    }
+
+    private boolean isExcludedUrl(URL url) {
+        for (String exclusionPattern : exclusionPatterns) {
+            Pattern p = Pattern.compile(exclusionPattern);
+            Matcher m = p.matcher(url.getPath());
+            if (m.matches()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private ArrayList<URL> mapToAbsolute(Elements anchors) {

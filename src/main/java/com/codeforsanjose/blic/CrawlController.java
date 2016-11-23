@@ -23,11 +23,12 @@ public class CrawlController {
     private int crawler_id = 0;
     private int fail_tolerance;
     private URL base_url;
-    private String header;
+    private List<String> exclusionPatterns;
+    private String authentication;
 
     private static final Logger log = LogManager.getLogger(CrawlController.class);
 
-    public CrawlController(String base_url, Integer depth_limit, Integer fail_tolerance, Integer max_thread_limit, String header) throws MalformedURLException {
+    public CrawlController(String base_url, Integer depth_limit, Integer fail_tolerance, Integer max_thread_limit, List<String> exclusionPatterns, String authentication) throws MalformedURLException {
         this.base_url = new URL(base_url);
         this.fail_tolerance = fail_tolerance;
         if (max_thread_limit != null) {
@@ -35,9 +36,10 @@ public class CrawlController {
             this.useFixedThreadPool = true;
         }
 
-        this.header = header;
+        this.authentication = authentication;
         this.depth_limit = depth_limit;
         this.crawler_id = 0;
+        this.exclusionPatterns = exclusionPatterns;
     }
 
     public void crawl() {
@@ -83,7 +85,7 @@ public class CrawlController {
     }
 
     private void startCrawler(WebPage page) {
-        Crawler task = new Crawler(++crawler_id, page, pages, this.base_url, this.depth_limit, this.header);
+        Crawler task = new Crawler(++crawler_id, page, pages, this.base_url, this.depth_limit, this.exclusionPatterns, this.authentication);
         log.trace("A new crawler has been added : " + task.toString());
         executor.execute(task);
     }
