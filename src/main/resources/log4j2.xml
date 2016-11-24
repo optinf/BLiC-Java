@@ -19,7 +19,7 @@
     <Loggers>
         <Root level="debug">
             <AppenderRef ref="console" level="error"/>
-            <AppenderRef ref="rollingfile" level="all"/>
+            <AppenderRef ref="rollingfile" level="error"/>
         </Root>
     </Loggers>
 </Configuration>
