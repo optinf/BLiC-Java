@@ -66,7 +66,7 @@ public class Crawler implements Runnable {
                 .ignoreContentType(true);
 
             //Do not add authentication if host is different then the base.
-            if (shouldCrawlPage()) {
+            if (this.authentication != null && shouldCrawlPage()) {
                 String base64login = new String(Base64.getEncoder().encode(this.authentication.getBytes()));
                 connection.header("Authorization", "Basic " + base64login);
             }
@@ -133,6 +133,10 @@ public class Crawler implements Runnable {
     }
 
     private boolean isExcludedUrl(URL url) {
+        if (exclusionPatterns == null || exclusionPatterns.size() == 0) {
+            return false;
+        }
+
         for (String exclusionPattern : exclusionPatterns) {
             Pattern p = Pattern.compile(exclusionPattern);
             Matcher m = p.matcher(url.getPath());

@@ -25,7 +25,7 @@ public class Main {
     private static void startCli(String[] args) {
         CrawlController c = null;
 
-        int requiredArgNumber = 6;
+        int requiredArgNumber = 1;
 
         if (args.length < requiredArgNumber) {
             System.out.println(getUsage());
@@ -33,11 +33,11 @@ public class Main {
         }
         else {
             String arg_url = args[0];
-            Integer arg_depth_limit = parseArgInt(args, 1, "Second argument (depth limit) must be a valid integer");
-            Integer arg_fail_tolerance = parseArgInt(args, 2, "Third argument (fail tolerance) must be a valid integer");
-            Integer max_thread_limit = parseArgInt(args, 3, "Third argument (max thread limit) must be a valid integer");
-            List<String> exclusionPatterns = Arrays.asList(args[4].split(";"));
-            String authentication = args[5];
+            Integer arg_depth_limit = args.length >= 2 ? parseArgInt(args, 1, "Second argument (depth limit) must be a valid integer") : 1;
+            Integer arg_fail_tolerance = args.length >= 3 ? parseArgInt(args, 2, "Third argument (fail tolerance) must be a valid integer") : 1;
+            Integer max_thread_limit = args.length >= 4 ? parseArgInt(args, 3, "Third argument (max thread limit) must be a valid integer") : 1;
+            List<String> exclusionPatterns = args.length >= 5 ? Arrays.asList(args[4].split(";")) : null;
+            String authentication = args.length >= 6 ? args[5] : null;
 
             try {
                 c = new CrawlController(arg_url, arg_depth_limit, arg_fail_tolerance, max_thread_limit, exclusionPatterns, authentication);
@@ -67,15 +67,15 @@ public class Main {
         return
             "usage: blic.jar [url] [depth limit] [fail tolerance] [max thread limit] [exclusion] [basic auth]\n"
                 + "\turl:               the URL of a website to be checked for broken links.\n"
-                + "\tdepth limit:       number defining how far links should be\n"
+                + "\tdepth limit:       Optional number defining how far links should be\n"
                 + "\t                    traversed before stopping\n\n"
-                + "\tfail tolerance:    number defining how many retry attempts\n"
+                + "\tfail tolerance:    Optional number defining how many retry attempts\n"
                 + "\t                    should be made for a URL that fails to respond in\n"
                 + "\t                    an expected manner.\n\n"
-                + "\tmax thread limit:  number that disables the dynamic thread\n"
+                + "\tmax thread limit:  Optional number that disables the dynamic thread\n"
                 + "\t                    management and defines the max number of threads\n"
-                + "\tExclusions         URL patterns to avoid : (/login.*;/private)\n"
-                + "\tbasic auth:  Basic auth credentials (username:password)";
+                + "\tExclusions         Optional URL patterns to avoid : (/login.*;/private)\n"
+                + "\tbasic auth:        Optional Basic auth credentials (username:password)";
     }
 
     /**
