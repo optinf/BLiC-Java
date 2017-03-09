@@ -51,19 +51,18 @@ public class Crawler implements Runnable {
             // give this page a rest for a bit
             try {
                 TimeUnit.SECONDS.sleep(this.webpage.getFailureCount());
-            }
-            catch (InterruptedException e) {
+            } catch (InterruptedException e) {
                 log.warn(e);
             }
         }
         try {
 
             Connection connection = Jsoup.connect(this.webpage.getUrl().toString())
-                //.userAgent("Mozilla/5.0 (Windows NT 6.1; WOW64; rv:40.0) Gecko/20100101 Firefox/40.1")
-                .userAgent("BLiC Broken Link Checker")
-                .referrer("http://www.google.com")
-                .followRedirects(true)
-                .ignoreContentType(true);
+                    //.userAgent("Mozilla/5.0 (Windows NT 6.1; WOW64; rv:40.0) Gecko/20100101 Firefox/40.1")
+                    .userAgent("BLiC Broken Link Checker")
+                    .referrer("http://www.google.com")
+                    .followRedirects(true)
+                    .ignoreContentType(true);
 
             //Do not add authentication if host is different then the base.
             if (this.authentication != null && shouldCrawlPage()) {
@@ -102,23 +101,19 @@ public class Crawler implements Runnable {
                 }
             }
             this.webpage.setStatus(200);
-        }
-        catch (UnsupportedMimeTypeException e) {
+        } catch (UnsupportedMimeTypeException e) {
             this.webpage.setStatus(200);
-        }
-        catch (HttpStatusException e) {
+        } catch (HttpStatusException e) {
             this.webpage.failureCountIncrement();
             this.webpage.setStatus(e.getStatusCode());
             this.webpage.setFailReason(e.toString());
             log.warn(e);
-        }
-        catch (SocketException e) {
+        } catch (SocketException e) {
             this.webpage.failureCountIncrement();
             this.webpage.setStatus(-1);
             this.webpage.setFailReason(e.toString());
             log.warn(e);
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             this.webpage.failureCountIncrement();
             this.webpage.setStatus(-1);
             this.webpage.setFailReason(e.toString());
@@ -136,14 +131,13 @@ public class Crawler implements Runnable {
         if (exclusionPatterns == null || exclusionPatterns.size() == 0) {
             return false;
         }
-
-        for (String exclusionPattern : exclusionPatterns) {
-            Pattern p = Pattern.compile(exclusionPattern);
-            Matcher m = p.matcher(url.getPath());
-            if (m.matches()) {
-                return true;
+            for (String exclusionPattern : exclusionPatterns) {
+                Pattern p = Pattern.compile(exclusionPattern);
+                Matcher m = p.matcher(url.toString());
+                if (m.matches()) {
+                    return true;
+                }
             }
-        }
         return false;
     }
 
@@ -167,8 +161,8 @@ public class Crawler implements Runnable {
     private static URL getUrlWithoutParameters(URL url) throws MalformedURLException {
         // see https://docs.oracle.com/javase/tutorial/networking/urls/urlInfo.html
         return new URL(url.getProtocol(),
-            url.getAuthority(),
-            url.getFile());
+                url.getAuthority(),
+                url.getFile());
 
     }
 
@@ -182,8 +176,7 @@ public class Crawler implements Runnable {
             if (tempUrlString.startsWith("http://") || tempUrlString.startsWith("https://")) {
                 res = new URL(tempUrlString.replaceAll("/$", ""));
             }
-        }
-        catch (MalformedURLException e) {
+        } catch (MalformedURLException e) {
             log.warn(e);
         }
         return res;
